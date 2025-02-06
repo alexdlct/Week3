@@ -13,9 +13,12 @@ public class PlayerMovement : MonoBehaviour
     float direction = 0;
     bool isGrounded = false;
     bool isDashing = false;
-    bool canDash = true;  // Corrected: Initialize as true
+    bool canDash = true;  
 
+    bool isFacingRight = true;
     InputSystem_Actions controls;
+
+    Animator anim;
 
     private void Awake()
     {
@@ -36,25 +39,31 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
     }
-
     void Update()
     {
-        if (!isDashing)
-        {
+        if(!isDashing){
             Move(direction);
         }
+        Debug.Log("Is Grounded: " + isGrounded);
+        /*if((isFacingRight && direction < 0) || (isFacingRight && direction > 0)){
+            Flip();
+        }*/
     }
 
     void OnMove(InputValue value)
     {
         float v = value.Get<float>();
         direction = v;
+        Debug.Log("Direction: " + direction);
     }
 
     void Move(float dir)
     {
-        rb.linearVelocity = new Vector2(dir * speed, rb.linearVelocity.y);  // Corrected from `linearVelocity`
+        rb.linearVelocity = new Vector2(dir * speed, rb.linearVelocity.y);
+        anim.SetBool("isRunning", dir != 0); //if the object is moving, its running
+        Debug.Log("Rididbody velocity: " + rb.linearVelocity);
     }
 
     void OnJump()
@@ -85,8 +94,7 @@ public class PlayerMovement : MonoBehaviour
         float originalGravity = rb.gravityScale;
 
         rb.gravityScale = 0;  // Disable gravity temporarily during the dash
-        rb.linearVelocity = new Vector2(direction * dashForce, 0);  // Corrected from `linearVelocity`
-
+        rb.linearVelocity = new Vector2(direction * dashForce, 0); 
         yield return new WaitForSeconds(dashTime);
 
         rb.gravityScale = originalGravity;  // Restore gravity
@@ -98,25 +106,43 @@ public class PlayerMovement : MonoBehaviour
 
     void OnCollisionEnter2D(Collision2D collision)
     {
-        if (collision.gameObject.CompareTag("ground"))
-        {
-            for (int i = 0; i < collision.contactCount; i++)
-            {
-                if (Vector2.Angle(collision.GetContact(i).normal, Vector2.up) < 45f)
-                {
+        CheckIfGrounded(collision);
+    }
+
+    void OnCollisionStay2D(Collision2D collision)
+    {
+      CheckIfGrounded(collision);
+    }
+
+    void OnCollisionExit2D(Collision2D collision)
+    {
+        if(collision.gameObject.CompareTag("ground")){
+            isGrounded = false;
+        }
+    }
+
+    void CheckIfGrounded(Collision2D collision){
+        if(collision.gameObject.CompareTag("ground")){
+            for(int i = 0; i < collision.contactCount; i++){
+                if(Vector2.Angle(collision.GetContact(i).normal, Vector2.up) < 45f){
                     isGrounded = true;
+                    return;
                 }
             }
         }
     }
 
-    void OnCollisionStay2D(Collision2D collision)
-    {
-        // Optional: Handle logic while colliding with the ground continuously
+
+    private void Flip (){
+        isFacingRight = !isFacingRight;
+        Vector3 newLocalScale = transform.localScale;
+        newLocalScale.x *= -1f;
+        transform.localScale = newLocalScale;
     }
 
-    void OnCollisionExit2D(Collision2D collision)
-    {
-        isGrounded = false;
+    private void OnTriggerEnter2D(Collider2D collision){
+        if(collision.gameObject.CompareTag("Collectible")){
+            Destroy(collision.gameObject);
+        }
     }
 }
